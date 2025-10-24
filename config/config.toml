@@ -1,0 +1,41 @@
+# Kafka to ClickHouse 同步服务配置
+
+[kafka]
+bootstrap_servers = "localhost:9092"
+group_id = "clickhouse-sync"
+topics = [
+    "solana.chain_blocks",
+    "solana.chain_txs",
+    "solana.chain_accounts",
+    "solana.chain_program_logs",
+    "solana.chain_events"
+]
+
+# 消费者配置
+enable_auto_commit = false
+session_timeout_ms = 30000
+max_poll_records = 500
+
+[clickhouse]
+url = "http://localhost:8123"
+database = "solana"
+user = "default"
+password = ""
+
+# 批量写入配置
+batch_size = 1000
+flush_interval_secs = 5
+max_retries = 3
+
+[processing]
+# 并发处理
+num_workers = 4
+
+# 去重配置
+enable_deduplication = true
+dedupe_window_secs = 60
+
+[metrics]
+# Prometheus 监控
+enabled = true
+port = 9090

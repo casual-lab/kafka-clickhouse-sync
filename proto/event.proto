@@ -1,0 +1,284 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+package blockdaemon.solana.accountsdb_plugin_kafka.types;
+
+message UpdateAccountEvent {
+  // The slot number when this update was emitted.
+  uint64 slot = 1;
+
+  // The Pubkey for the account.
+  bytes pubkey = 2;
+
+  // The lamports held by the account.
+  uint64 lamports = 3;
+
+  // The Pubkey of the owner program account.
+  bytes owner = 4;
+
+  // This account's data contains a loaded program.
+  bool executable = 5;
+
+  // The epoch at which this account will next owe rent.
+  uint64 rent_epoch = 6;
+
+  // The data held in this account.
+  bytes data = 7;
+
+  // A global monotonically increasing atomic number, which can be used
+  // to tell the order of the account update. For example, when an
+  // account is updated in the same slot multiple times, the update
+  // with higher write_version should supersede the one with lower
+  // write_version.
+  uint64 write_version = 8;
+
+  // First signature of the transaction caused this account modification
+  optional bytes txn_signature = 9;
+
+  // Additional analytics fields
+  uint32 data_version = 10;                   // Account data version for change tracking
+  bool is_startup = 11;                       // Whether this is a startup account update
+  uint64 account_age = 12;                    // Account age in slots since creation
+}
+
+message SlotStatusEvent {
+  uint64 slot = 1;
+
+  uint64 parent = 2;
+
+  SlotStatus status = 3;
+
+  // Additional analytics fields
+  bool is_confirmed = 4;                      // Whether slot is confirmed
+  uint32 confirmation_count = 5;              // Number of confirmations
+  string status_description = 6;              // Human-readable status description
+}
+
+enum SlotStatus {
+  // The highest slot of the heaviest fork processed by the node. Ledger state at this slot is
+  // not derived from a confirmed or finalized block, but if multiple forks are present, is from
+  // the fork the validator believes is most likely to finalize.
+  Processed = 0;
+
+  // The highest slot having reached max vote lockout.
+  Rooted = 1;
+
+  // The highest slot that has been voted on by supermajority of the cluster, ie. is confirmed.
+  Confirmed = 2;
+
+  FirstShredReceived = 3;
+  Completed = 4;
+  CreatedBank = 5;
+
+  Dead = 0xDEAD;
+}
+
+// MessageHeader
+message MessageHeader {
+  uint32 num_required_signatures = 1;
+  uint32 num_readonly_signed_accounts = 2;
+  uint32 num_readonly_unsigned_accounts = 3;
+}
+
+// CompiledInstruction
+message CompiledInstruction {
+  uint32 program_id_index = 1;
+  repeated uint32 accounts = 2;
+  bytes data = 3;
+}
+
+message LoadedAddresses {
+  repeated bytes writable = 1;
+  repeated bytes readonly = 2;
+  repeated LoadedAddressInfo writable_info = 3;   // Detailed writable address information
+  repeated LoadedAddressInfo readonly_info = 4;   // Detailed readonly address information
+}
+
+// New message for detailed loaded address information
+message LoadedAddressInfo {
+  bytes address = 1;                           // Account address
+  uint32 index = 2;                            // Index in the loaded addresses list
+  bool is_writable = 3;                        // Whether account is writable
+}
+
+message MessageAddressTableLookup {
+  bytes account_key = 1;
+  repeated uint32 writable_indexes = 2;
+  repeated uint32 readonly_indexes = 3;
+}
+
+message V0Message {
+  MessageHeader header = 1;
+  repeated bytes account_keys = 2;
+  bytes recent_block_hash = 3;
+  repeated CompiledInstruction instructions = 4;
+  repeated MessageAddressTableLookup address_table_lookup = 5;
+}
+
+message V0LoadedMessage {
+  V0Message message_ = 1;
+  LoadedAddresses loaded_adresses = 2;
+  repeated bool is_writable_account_cache = 3;
+}
+
+message LegacyMessage {
+  MessageHeader header = 1;
+  repeated bytes account_keys = 2;
+  bytes recent_block_hash = 3;
+  repeated CompiledInstruction instructions = 4;
+}
+
+message LegacyLoadedMessage {
+  LegacyMessage message_ = 1;
+  repeated bool is_writable_account_cache = 2;
+}
+
+message SanitizedMessage {
+  oneof message_payload {
+    LegacyLoadedMessage legacy = 1;
+    V0LoadedMessage v0 = 2;
+  }
+}
+
+message SanitizedTransaction {
+  SanitizedMessage message_ = 1;
+  bytes message_hash = 2;
+  bool is_simple_vote_transaction = 3;
+  repeated bytes signatures = 4;
+}
+
+// https://github.com/solana-labs/solana/pull/28430/files
+message InnerInstructions {
+  uint32 index = 1;
+  repeated InnerInstruction instructions = 2;
+}
+
+message InnerInstruction {
+  CompiledInstruction instruction = 1;
+  optional uint32 stack_height = 2;
+}
+
+message UiTokenAmount {
+  google.protobuf.DoubleValue ui_amount = 1;
+  uint32 decimals = 2;
+  string amount = 3;
+  string ui_amount_string = 4;
+}
+
+message TransactionTokenBalance {
+  uint32 account_index = 1;
+  string mint = 2;
+  UiTokenAmount ui_token_account = 3;
+  string owner = 4;
+}
+
+message Reward {
+  string pubkey = 1;
+  int64 lamports = 2;
+  uint64 post_balance = 3;
+  // reward_type is an enum, but protobuf will require it to be able to accept any int32.
+  int32 reward_type = 4;
+  uint32 commission = 5;
+}
+
+message TransactionStatusMeta {
+  bool is_status_err = 1;
+  string error_info = 2;
+  uint64 fee = 3;
+  repeated uint64 pre_balances = 4;
+  repeated uint64 post_balances = 5;
+  repeated InnerInstructions inner_instructions = 6;
+  repeated string log_messages = 7;
+  repeated TransactionTokenBalance pre_token_balances = 8;
+  repeated TransactionTokenBalance post_token_balances = 9;
+  repeated Reward rewards = 10;
+  uint32 compute_units_consumed = 11;        // Compute units used by transaction
+  uint64 compute_units_price = 12;           // Compute unit price in micro-lamports
+  repeated string error_logs = 13;           // Detailed error logs for debugging
+  bool is_successful = 14;                   // Transaction success status (inverse of is_status_err)
+}
+
+// based on solana_accountsdb_plugin_interface::accountsdb_plugin_interface::ReplicaTransactionInfo
+message TransactionEvent {
+  bytes signature = 1;
+  bool is_vote = 2;
+  SanitizedTransaction transaction = 3;
+  TransactionStatusMeta transaction_status_meta = 4;
+  uint64 slot = 5;
+  uint64 index = 6;
+
+  // Enhanced analytics fields
+  uint32 compute_units_consumed = 7;         // Compute units used by transaction
+  uint64 compute_units_price = 8;            // Compute unit price in micro-lamports
+  uint64 total_cost = 9;                     // Total transaction cost (fee + compute)
+  uint32 instruction_count = 10;             // Number of instructions in transaction
+  uint32 account_count = 11;                 // Number of accounts involved
+  uint64 execution_time_ns = 12;             // Execution time in nanoseconds
+  bool is_successful = 13;                   // Transaction success status
+  repeated string execution_logs = 14;        // Detailed execution logs
+  repeated string error_details = 15;         // Detailed error information
+  uint32 confirmation_count = 16;            // Number of confirmations
+}
+
+// Block metadata event - for chain_blocks table
+message BlockMetadataEvent {
+  uint64 slot = 1;                           // Slot number
+  string block_hash = 2;                     // Block hash (base58)
+  uint64 parent_slot = 3;                    // Parent slot number
+  string parent_block_hash = 4;              // Parent block hash (base58)
+  string leader = 5;                         // Block leader pubkey (base58)
+  uint32 executed_transaction_count = 6;     // Number of transactions in block
+  optional int64 block_time = 7;             // Unix timestamp
+  optional uint64 block_height = 8;          // Block height
+  repeated Reward rewards = 9;               // Block rewards
+  uint32 total_compute_units = 10;           // Total compute units consumed
+  uint64 total_fees = 11;                    // Total fees collected
+}
+
+// Log type enumeration
+enum LogType {
+  UNKNOWN = 0;
+  INVOKE = 1;      // "Program XXX invoke [N]"
+  LOG = 2;         // "Program log: XXX"
+  DATA = 3;        // "Program data: XXX"
+  SUCCESS = 4;     // "Program XXX success"
+  FAILED = 5;      // "Program XXX failed: XXX"
+  CONSUMED = 6;    // "Program XXX consumed N of M compute units"
+}
+
+// Program log event - for chain_program_logs table
+message ProgramLogEvent {
+  uint64 slot = 1;                           // Slot number
+  bytes tx_signature = 2;                    // Transaction signature
+  uint32 tx_index = 3;                       // Transaction index in block
+  string program_id = 4;                     // Program ID (base58)
+  string message = 5;                        // Log message content
+  uint32 log_index = 6;                      // Log index in transaction
+  uint32 depth = 7;                          // Call depth (1 = top level, 2+ = CPI)
+  LogType log_type = 8;                      // Type of log message
+}
+
+// Chain event (Anchor and custom events) - for chain_events table
+message ChainEvent {
+  uint64 slot = 1;                           // Slot number
+  bytes tx_signature = 2;                    // Transaction signature
+  uint32 tx_index = 3;                       // Transaction index in block
+  string program_id = 4;                     // Program that emitted the event
+  bytes event_discriminator = 5;             // Event discriminator (8 bytes)
+  string event_type = 6;                     // Event type name (optional, for known events)
+  bytes raw_data = 7;                        // Raw event data (Borsh encoded)
+  optional string json_payload = 8;          // JSON representation (if parseable)
+  uint32 log_index = 9;                      // Corresponding log index
+}
+
+message MessageWrapper {
+  oneof event_message {
+    UpdateAccountEvent account = 1;
+    SlotStatusEvent slot = 2;
+    TransactionEvent transaction = 3;
+    BlockMetadataEvent block = 4;            // New: block metadata
+    ProgramLogEvent program_log = 5;         // New: program logs
+    ChainEvent chain_event = 6;              // New: chain events
+  }
+}

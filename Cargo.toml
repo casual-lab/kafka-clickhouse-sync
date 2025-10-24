@@ -1,0 +1,61 @@
+[package]
+name = "kafka-clickhouse-sync"
+version = "0.1.0"
+edition = "2021"
+authors = ["Solana Geyser Team"]
+description = "Kafka to ClickHouse sync service for Solana blockchain data"
+
+[[bin]]
+name = "kafka-clickhouse-sync"
+path = "src/main.rs"
+
+[dependencies]
+# Kafka
+rdkafka = { version = "0.36", features = ["cmake-build"] }
+
+# ClickHouse
+clickhouse = { version = "0.11", features = ["test-util"] }
+
+# Protobuf
+prost = "0.12"
+prost-types = "0.12"
+
+# 异步运行时
+tokio = { version = "1.35", features = ["full"] }
+futures = "0.3"
+
+# 配置
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+config = "0.14"
+
+# 日志和追踪
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# 监控
+prometheus = "0.13"
+axum = "0.7"  # 用于健康检查和监控端点
+
+# 错误处理
+anyhow = "1.0"
+thiserror = "1.0"
+
+# 工具
+base64 = "0.21"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+bs58 = "0.5"
+sha2 = "0.10"
+
+[build-dependencies]
+prost-build = "0.12"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
