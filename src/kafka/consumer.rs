@@ -52,6 +52,12 @@ pub struct KafkaConsumerBuilder {
     enable_auto_commit: bool,
     auto_offset_reset: String,
     max_poll_interval_ms: String,
+    
+    // SASL 认证
+    sasl_mechanism: Option<String>,
+    sasl_username: Option<String>,
+    sasl_password: Option<String>,
+    security_protocol: Option<String>,
 }
 
 impl KafkaConsumerBuilder {
@@ -63,6 +69,10 @@ impl KafkaConsumerBuilder {
             enable_auto_commit: true,
             auto_offset_reset: "earliest".to_string(),
             max_poll_interval_ms: "300000".to_string(), // 5 分钟
+            sasl_mechanism: None,
+            sasl_username: None,
+            sasl_password: None,
+            security_protocol: None,
         }
     }
 
@@ -80,6 +90,23 @@ impl KafkaConsumerBuilder {
         self.auto_offset_reset = reset;
         self
     }
+    
+    pub fn sasl_auth(
+        mut self,
+        mechanism: String,
+        username: String,
+        password: String,
+    ) -> Self {
+        self.sasl_mechanism = Some(mechanism);
+        self.sasl_username = Some(username);
+        self.sasl_password = Some(password);
+        self
+    }
+    
+    pub fn security_protocol(mut self, protocol: String) -> Self {
+        self.security_protocol = Some(protocol);
+        self
+    }
 
     pub fn build(self) -> Result<KafkaConsumer> {
         if self.topics.is_empty() {
@@ -92,7 +119,8 @@ impl KafkaConsumerBuilder {
 
         let context = LoggingConsumerContext;
         
-        let consumer: StreamConsumer<LoggingConsumerContext> = ClientConfig::new()
+        let mut config = ClientConfig::new();
+        config
             .set("bootstrap.servers", &self.bootstrap_servers)
             .set("group.id", &self.group_id)
             .set("enable.auto.commit", self.enable_auto_commit.to_string())
@@ -101,8 +129,33 @@ impl KafkaConsumerBuilder {
             .set("session.timeout.ms", "45000")
             .set("heartbeat.interval.ms", "3000")
             .set("enable.partition.eof", "false")
-            .set("api.version.request", "true")
-            .create_with_context(context)?;
+            .set("api.version.request", "true");
+        
+        // 设置安全协议
+        if let Some(protocol) = &self.security_protocol {
+            if !protocol.is_empty() {
+                info!("Using security protocol: {}", protocol);
+                config.set("security.protocol", protocol);
+            }
+        }
+        
+        // 设置 SASL 认证
+        if let Some(mechanism) = &self.sasl_mechanism {
+            if !mechanism.is_empty() {
+                info!("Using SASL mechanism: {}", mechanism);
+                config.set("sasl.mechanism", mechanism);
+                
+                if let Some(username) = &self.sasl_username {
+                    config.set("sasl.username", username);
+                }
+                
+                if let Some(password) = &self.sasl_password {
+                    config.set("sasl.password", password);
+                }
+            }
+        }
+        
+        let consumer: StreamConsumer<LoggingConsumerContext> = config.create_with_context(context)?;
 
         // 订阅 topics
         let topic_refs: Vec<&str> = self.topics.iter().map(|s| s.as_str()).collect();

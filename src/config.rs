@@ -17,6 +17,19 @@ pub struct KafkaConfig {
     pub group_id: String,
     pub topics: Vec<String>,
     
+    // SASL 认证配置
+    #[serde(default)]
+    pub sasl_mechanism: String,
+    
+    #[serde(default)]
+    pub sasl_username: String,
+    
+    #[serde(default)]
+    pub sasl_password: String,
+    
+    #[serde(default)]
+    pub security_protocol: String,
+    
     #[serde(default = "default_false")]
     pub enable_auto_commit: bool,
     

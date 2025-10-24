@@ -1,7 +1,7 @@
 # Kafka to ClickHouse 同步服务配置
 
 [kafka]
-bootstrap_servers = "localhost:9092"
+bootstrap_servers = "localhost:19092"
 group_id = "clickhouse-sync"
 topics = [
     "solana.chain_blocks",
@@ -10,6 +10,12 @@ topics = [
     "solana.chain_program_logs",
     "solana.chain_events"
 ]
+
+# SASL 认证配置（如果需要）
+sasl_mechanism = ""  # 可选值: "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512", "" (不使用)
+sasl_username = ""
+sasl_password = ""
+security_protocol = ""  # 可选值: "PLAINTEXT", "SASL_PLAINTEXT", "SASL_SSL", "" (默认 PLAINTEXT)
 
 # 消费者配置
 enable_auto_commit = false

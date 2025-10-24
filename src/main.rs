@@ -43,13 +43,28 @@ async fn main() -> anyhow::Result<()> {
 
     // 初始化 Kafka 消费者
     info!("Initializing Kafka consumer...");
-    let consumer = KafkaConsumerBuilder::new(
+    let mut consumer_builder = KafkaConsumerBuilder::new(
         config.kafka.bootstrap_servers.clone(),
         config.kafka.group_id.clone(),
     )
     .topics(config.kafka.topics.clone())
-    .enable_auto_commit(true)
-    .build()?;
+    .enable_auto_commit(true);
+    
+    // 配置 SASL 认证（如果提供）
+    if !config.kafka.sasl_mechanism.is_empty() {
+        consumer_builder = consumer_builder.sasl_auth(
+            config.kafka.sasl_mechanism.clone(),
+            config.kafka.sasl_username.clone(),
+            config.kafka.sasl_password.clone(),
+        );
+    }
+    
+    // 配置安全协议（如果提供）
+    if !config.kafka.security_protocol.is_empty() {
+        consumer_builder = consumer_builder.security_protocol(config.kafka.security_protocol.clone());
+    }
+    
+    let consumer = consumer_builder.build()?;
 
     info!("Kafka consumer initialized successfully");
 
