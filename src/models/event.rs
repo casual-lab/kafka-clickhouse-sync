@@ -2,7 +2,6 @@
 
 use clickhouse::Row;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use base64::Engine;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Row)]
@@ -16,18 +15,20 @@ pub struct ChainEventRow {
     pub discriminator: String,
     pub payload_json: String,
     pub raw_data: String,
-    pub timestamp: DateTime<Utc>,
-    pub ingested_at: DateTime<Utc>,
+    pub timestamp: u64,         // Unix timestamp
+    pub ingested_at: u64,       // Unix timestamp
 }
 
 impl ChainEventRow {
     pub fn from_proto(
         event: &crate::proto::blockdaemon::solana::accountsdb_plugin_kafka::types::ChainEvent
     ) -> anyhow::Result<Self> {
-        // 从 slot 推算时间戳
-        let timestamp_secs = (event.slot as f64 * 0.4) as i64;
-        let timestamp = DateTime::from_timestamp(timestamp_secs, 0)
-            .unwrap_or_else(|| Utc::now());
+        // 从 slot 推算时间戳 (slot * 400ms)
+        let timestamp = (event.slot as f64 * 0.4) as u64;
+        let ingested_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         
         Ok(Self {
             slot: event.slot,
@@ -40,7 +41,7 @@ impl ChainEventRow {
             payload_json: event.json_payload.clone().unwrap_or_default(),
             raw_data: base64::engine::general_purpose::STANDARD.encode(&event.raw_data),
             timestamp,
-            ingested_at: Utc::now(),
+            ingested_at,
         })
     }
 }

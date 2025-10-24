@@ -2,7 +2,6 @@
 
 use clickhouse::Row;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Row)]
 pub struct ProgramLogRow {
@@ -14,18 +13,20 @@ pub struct ProgramLogRow {
     pub message: String,
     pub log_type: i32,
     pub depth: u32,
-    pub timestamp: DateTime<Utc>,
-    pub ingested_at: DateTime<Utc>,
+    pub timestamp: u64,         // Unix timestamp
+    pub ingested_at: u64,       // Unix timestamp
 }
 
 impl ProgramLogRow {
     pub fn from_proto(
         log_event: &crate::proto::blockdaemon::solana::accountsdb_plugin_kafka::types::ProgramLogEvent
     ) -> anyhow::Result<Self> {
-        // 从 slot 推算时间戳
-        let timestamp_secs = (log_event.slot as f64 * 0.4) as i64;
-        let timestamp = DateTime::from_timestamp(timestamp_secs, 0)
-            .unwrap_or_else(|| Utc::now());
+        // 从 slot 推算时间戳 (slot * 400ms)
+        let timestamp = (log_event.slot as f64 * 0.4) as u64;
+        let ingested_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         
         Ok(Self {
             slot: log_event.slot,
@@ -37,7 +38,7 @@ impl ProgramLogRow {
             log_type: log_event.log_type,
             depth: log_event.depth,
             timestamp,
-            ingested_at: Utc::now(),
+            ingested_at,
         })
     }
 }
