@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Kafka
-rdkafka = { version = "0.36", features = ["cmake-build"] }
+rdkafka = { version = "0.36", features = ["cmake-build", "sasl", "ssl"] }
 
 # ClickHouse
 clickhouse = { version = "0.11", features = ["test-util"] }
@@ -43,7 +43,7 @@ anyhow = "1.0"
 thiserror = "1.0"
 
 # 工具
-base64 = "0.21"
+base64 = "0.22"
 hex = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 bs58 = "0.5"
