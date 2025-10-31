@@ -8,6 +8,7 @@ topics = [
     "solana.chain_txs",
     "solana.chain_accounts",
     "solana.chain_program_logs",
+    "solana.slots",
     "solana.chain_events"
 ]
 
